@@ -330,7 +330,13 @@ export default function PlanPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Show AppNav only for authenticated users */}
-      {user && <AppNav />}
+      {user && (
+        <AppNav 
+          showAccountability={true}
+          onAccountabilityClick={() => setShowAccountabilityModal(true)}
+          hasSubscription={hasSubscription}
+        />
+      )}
       
       <AnimatePresence mode="wait">
         {/* Loading Stage */}
@@ -477,67 +483,38 @@ export default function PlanPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="min-h-screen"
+            className="min-h-screen pt-16"
           >
-            {/* Header - adjusted for fixed AppNav */}
+            {/* Simple header with view mode tabs only */}
             <div className="sticky top-16 z-30 bg-black/80 backdrop-blur-xl border-b border-white/10">
               <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r ${personaDefinitions[persona as keyof typeof personaDefinitions].color}`}>
-                      {(() => {
-                        const Icon = personaDefinitions[persona as keyof typeof personaDefinitions].icon
-                        return <Icon className="w-5 h-5 text-white" />
-                      })()}
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-display font-bold">Your 90-Day AI Journey</h1>
-                      <p className="text-sm font-sans text-gray-400">
-                        {personaDefinitions[persona as keyof typeof personaDefinitions].title}
-                      </p>
-                    </div>
-                  </div>
+                  <h1 className="text-2xl font-display font-bold">Your 90-Day Journey</h1>
                   
-                  <div className="flex items-center space-x-4">
-                    {/* Prominent Accountability Button */}
-                    {!hasSubscription && (
-                      <button
-                        onClick={() => setShowAccountabilityModal(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full font-sans font-semibold text-white hover:shadow-lg hover:shadow-yellow-500/25 transition flex items-center animate-pulse"
-                      >
-                        <Download className="w-5 h-5 mr-2" />
-                        Get Accountability
-                      </button>
-                    )}
-                    
+                  {/* Action buttons */}
+                  <div className="flex items-center space-x-2">
                     {hasSubscription && (
                       <button
                         onClick={handleExportCalendar}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full font-sans font-semibold text-white hover:shadow-lg hover:shadow-emerald-500/25 transition flex items-center"
+                        className="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg font-sans font-medium hover:bg-emerald-500/20 transition flex items-center"
                       >
-                        <Download className="w-5 h-5 mr-2" />
-                        Export Calendar
-                      </button>
-                    )}
-                    
-                    {isAuthenticated && (
-                      <button
-                        onClick={() => router.push('/timeline')}
-                        className="px-4 py-2 bg-white/10 rounded-lg font-sans font-semibold hover:bg-white/20 transition flex items-center"
-                      >
-                        View Timeline
-                        <ArrowRight className="ml-2 w-4 h-4" />
+                        <Download className="w-4 h-4 mr-2" />
+                        Export
                       </button>
                     )}
                     
                     <button
                       onClick={() => setIsEditing(!isEditing)}
                       className="p-2 rounded-lg hover:bg-white/10 transition"
+                      aria-label="Edit plan"
                     >
                       <Edit2 className="w-5 h-5" />
                     </button>
                     
-                    <button className="p-2 rounded-lg hover:bg-white/10 transition">
+                    <button 
+                      className="p-2 rounded-lg hover:bg-white/10 transition"
+                      aria-label="Share plan"
+                    >
                       <Share2 className="w-5 h-5" />
                     </button>
                   </div>

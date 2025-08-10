@@ -10,10 +10,18 @@ import {
   User,
   LogOut,
   Settings,
-  ChevronDown
+  ChevronDown,
+  Sparkles,
+  Download
 } from 'lucide-react'
 
-export default function AppNav() {
+interface AppNavProps {
+  showAccountability?: boolean
+  onAccountabilityClick?: () => void
+  hasSubscription?: boolean
+}
+
+export default function AppNav({ showAccountability = false, onAccountabilityClick, hasSubscription = false }: AppNavProps) {
   const { user, profile, signOut } = useAuth()
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -65,45 +73,64 @@ export default function AppNav() {
   }
 
   const navLinks = [
-    { href: '/timeline', label: 'Timeline', icon: Calendar },
     { href: '/plan', label: 'My Plan', icon: LayoutDashboard },
-    { href: '/profile', label: 'Profile', icon: User }
+    { href: '/timeline', label: 'Timeline', icon: Calendar }
   ]
+
+  // Get persona info for display
+  const getPersonaDisplay = () => {
+    if (!profile?.persona) return null
+    return profile.persona.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  }
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl border-b border-white/10">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/timeline" className="flex items-center space-x-2">
+          <Link href={user ? "/plan" : "/"} className="flex items-center space-x-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">AI</span>
+              <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <span className="text-white font-medium">My AI Onboarding</span>
+            <span className="text-white font-medium hidden sm:inline">My AI Onboarding</span>
           </Link>
 
-          {/* Center Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navLinks.map(link => {
-              const Icon = link.icon
-              const isActive = pathname === link.href
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg transition-all
-                    ${isActive 
-                      ? 'bg-white/10 text-white' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                    }
-                  `}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span className="text-sm font-medium">{link.label}</span>
-                </Link>
-              )
-            })}
+          {/* Center Navigation + Accountability Button */}
+          <div className="flex items-center space-x-4">
+            {/* Nav Links */}
+            <div className="hidden md:flex items-center space-x-1">
+              {navLinks.map(link => {
+                const Icon = link.icon
+                const isActive = pathname === link.href
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`
+                      flex items-center gap-2 px-4 py-2 rounded-lg transition-all
+                      ${isActive 
+                        ? 'bg-white/10 text-white' 
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }
+                    `}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span className="text-sm font-medium">{link.label}</span>
+                  </Link>
+                )
+              })}
+            </div>
+
+            {/* Accountability Button */}
+            {showAccountability && !hasSubscription && (
+              <button
+                onClick={onAccountabilityClick}
+                className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full font-sans font-semibold text-white text-sm hover:shadow-lg hover:shadow-yellow-500/25 transition flex items-center animate-pulse"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                <span className="hidden sm:inline">Get Accountability</span>
+              </button>
+            )}
           </div>
 
           {/* Account Dropdown */}
@@ -111,9 +138,12 @@ export default function AppNav() {
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
               className="flex items-center gap-3 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+              aria-label="Account menu"
+              aria-expanded={isDropdownOpen}
+              aria-haspopup="true"
             >
               {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full ${getAvatarColor()} flex items-center justify-center`}>
+              <div className={`w-8 h-8 rounded-full ${getAvatarColor()} flex items-center justify-center`} role="img" aria-label="User avatar">
                 <span className="text-white text-sm font-medium">{getInitials()}</span>
               </div>
               
@@ -127,27 +157,39 @@ export default function AppNav() {
                 </div>
               </div>
               
-              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
 
             {/* Dropdown Menu */}
             {isDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-gray-900 rounded-lg shadow-xl border border-white/10 py-2">
+              <div 
+                className="absolute right-0 mt-2 w-64 bg-gray-900 rounded-lg shadow-xl border border-white/10 py-2"
+                role="menu"
+                aria-orientation="vertical"
+                aria-labelledby="account-menu-button"
+              >
                 {/* User Info */}
                 <div className="px-4 py-3 border-b border-white/10">
-                  <div className="text-sm font-medium text-white">
-                    {profile?.full_name || 'User'}
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">
-                    {user?.email}
-                  </div>
-                  {profile?.persona && (
-                    <div className="mt-2 inline-flex items-center px-2 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30">
-                      <span className="text-xs text-emerald-300">
-                        {profile.persona.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
-                      </span>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-white">
+                        {profile?.full_name || 'User'}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-1">
+                        {user?.email}
+                      </div>
                     </div>
-                  )}
+                    {profile?.persona && (
+                      <div className="ml-2">
+                        <div className="inline-flex items-center px-2 py-1 rounded-full bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30">
+                          <Sparkles className="w-3 h-3 mr-1 text-emerald-400" />
+                          <span className="text-xs text-emerald-300 font-medium">
+                            {getPersonaDisplay()}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Menu Items */}
@@ -157,7 +199,7 @@ export default function AppNav() {
                   onClick={() => setIsDropdownOpen(false)}
                 >
                   <User className="w-4 h-4" />
-                  View Profile
+                  Profile
                 </Link>
 
                 <Link
@@ -187,27 +229,29 @@ export default function AppNav() {
         </div>
 
         {/* Mobile Navigation */}
-        <div className="md:hidden flex items-center justify-around py-2 border-t border-white/10">
-          {navLinks.map(link => {
-            const Icon = link.icon
-            const isActive = pathname === link.href
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`
-                  flex flex-col items-center gap-1 px-4 py-2 rounded-lg transition-all
-                  ${isActive 
-                    ? 'text-emerald-400' 
-                    : 'text-gray-400 hover:text-white'
-                  }
-                `}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-xs">{link.label}</span>
-              </Link>
-            )
-          })}
+        <div className="md:hidden flex items-center justify-center py-2 border-t border-white/10">
+          <div className="flex items-center space-x-2">
+            {navLinks.map(link => {
+              const Icon = link.icon
+              const isActive = pathname === link.href
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`
+                    flex items-center gap-1 px-3 py-2 rounded-lg transition-all text-sm
+                    ${isActive 
+                      ? 'bg-white/10 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                    }
+                  `}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{link.label}</span>
+                </Link>
+              )
+            })}
+          </div>
         </div>
       </div>
     </nav>
