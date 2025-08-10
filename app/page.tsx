@@ -83,6 +83,20 @@ const aiAnimationData = {
   }]
 }
 
+// Generate deterministic star positions based on index
+const generateStarPosition = (index: number) => {
+  // Use a simple hash-like function to generate consistent positions
+  const seed = index * 2654435761 % 2147483647
+  const x = (seed % 100)
+  const y = ((seed * 7) % 100)
+  const duration = 3 + (seed % 20) / 10
+  const delay = (seed % 20) / 10
+  return { x, y, duration, delay }
+}
+
+// Pre-generate star positions to avoid hydration issues
+const starPositions = Array.from({ length: 50 }, (_, i) => generateStarPosition(i))
+
 export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { scrollY } = useScroll()
@@ -134,22 +148,22 @@ export default function LandingPage() {
         
         {/* Animated background dots */}
         <div className="absolute inset-0">
-          {[...Array(50)].map((_, i) => (
+          {starPositions.map((star, i) => (
             <motion.div
               key={i}
               className="absolute w-1 h-1 bg-white/20 rounded-full"
               style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
+                left: `${star.x}%`,
+                top: `${star.y}%`,
               }}
               animate={{
                 y: [0, -30, 0],
                 opacity: [0.2, 1, 0.2],
               }}
               transition={{
-                duration: 3 + Math.random() * 2,
+                duration: star.duration,
                 repeat: Infinity,
-                delay: Math.random() * 2,
+                delay: star.delay,
               }}
             />
           ))}
