@@ -41,13 +41,19 @@ export default function SignInPage() {
         // Check if user has completed survey
         const { data: profile } = await supabase
           .from('profiles')
-          .select('survey_answers, persona')
+          .select('survey_answers, persona, persona_revealed_at')
           .eq('id', data.user.id)
           .single()
 
         if (profile?.survey_answers && profile?.persona) {
-          // User has completed onboarding, go to plan
-          router.push('/plan')
+          // User has completed onboarding
+          // If they've already seen the persona reveal, go to timeline
+          // Otherwise, go to plan to see the persona reveal once
+          if (profile.persona_revealed_at) {
+            router.push('/timeline')
+          } else {
+            router.push('/plan')
+          }
         } else {
           // User needs to complete survey
           router.push('/survey')
