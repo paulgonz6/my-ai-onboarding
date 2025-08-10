@@ -14,8 +14,10 @@ import {
   Brain,
   Target,
   Calendar,
-  Users
+  Users,
+  X
 } from 'lucide-react'
+import Link from 'next/link'
 
 // Survey questions data structure
 const surveyQuestions = {
@@ -350,34 +352,55 @@ export default function SurveyPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Progress bar */}
-      {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && (
-        <div className="fixed top-0 left-0 right-0 h-1 bg-gray-800 z-50">
-          <motion.div
-            className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
+      {/* Minimal Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-50">
+        {/* Progress bar */}
+        {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && (
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
+            <motion.div
+              className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+            />
+          </div>
+        )}
+        
+        <div className="flex items-center justify-between px-8 py-6">
+          {/* Back button */}
+          {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && answeredQuestions > 0 ? (
+            <button
+              onClick={handleBack}
+              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          ) : (
+            <div className="w-9 h-9" /> // Spacer
+          )}
+          
+          {/* Center: Logo or breadcrumb */}
+          <Link href="/" className="text-sm text-gray-400 hover:text-white transition-colors">
+            My AI Onboarding
+          </Link>
+          
+          {/* Right side: Question counter or Exit */}
+          <div className="flex items-center gap-4">
+            {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && (
+              <div className="text-sm text-gray-400">
+                {answeredQuestions + 1} of {totalQuestions}
+              </div>
+            )}
+            <Link
+              href="/"
+              className="p-2 rounded-full hover:bg-white/10 transition-colors"
+              title="Exit survey"
+            >
+              <X className="w-5 h-5" />
+            </Link>
+          </div>
         </div>
-      )}
-
-      {/* Back button */}
-      {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && answeredQuestions > 0 && (
-        <button
-          onClick={handleBack}
-          className="fixed top-8 left-8 p-2 rounded-full hover:bg-white/10 transition-colors z-40"
-        >
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-      )}
-
-      {/* Question counter */}
-      {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && (
-        <div className="fixed top-8 right-8 text-sm text-gray-400 z-40">
-          Question {answeredQuestions + 1} of {totalQuestions}
-        </div>
-      )}
+      </div>
 
       <AnimatePresence mode="wait">
         <motion.div

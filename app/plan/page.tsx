@@ -24,6 +24,8 @@ import { generate90DayPlan, Activity } from '../../lib/activities'
 import { supabase } from '@/lib/supabase'
 import AuthModal from '../components/AuthModal'
 import AccountabilityModal from '../components/AccountabilityModal'
+import AppNav from '../components/AppNav'
+import { useAuth } from '../contexts/AuthContext'
 
 // Persona definitions with icons and descriptions
 const personaDefinitions = {
@@ -75,6 +77,7 @@ type ViewMode = 'timeline' | 'calendar' | 'list'
 
 export default function PlanPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [stage, setStage] = useState<'loading' | 'persona' | 'plan'>('loading')
   const [loadingMessage, setLoadingMessage] = useState('Analyzing your responses...')
   const [persona, setPersona] = useState<string>('')
@@ -264,6 +267,9 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Show AppNav only for authenticated users */}
+      {user && <AppNav />}
+      
       <AnimatePresence mode="wait">
         {/* Loading Stage */}
         {stage === 'loading' && (

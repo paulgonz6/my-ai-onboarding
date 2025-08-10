@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase'
 import type { ActivityTemplate, UserPlan, UserProgress } from '@/lib/supabase'
 import ProtectedRoute from '@/app/components/ProtectedRoute'
 import { useAuth } from '@/app/contexts/AuthContext'
+import AppNav from '@/app/components/AppNav'
 
 interface TimelineActivity extends ActivityTemplate {
   progress?: UserProgress
@@ -231,7 +232,11 @@ function TimelineContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white pt-8">
+    <div className="min-h-screen bg-gradient-to-b from-gray-900 to-black text-white">
+      <AppNav />
+      
+      {/* Content with padding for nav */}
+      <div className="pt-24">
       {/* Page Header */}
       <div className="max-w-7xl mx-auto px-6 mb-8">
         <motion.div
@@ -460,6 +465,7 @@ function TimelineContent() {
           </div>
         </div>
       </div>
+      </div>{/* End of pt-24 wrapper */}
     </div>
   )
 }
