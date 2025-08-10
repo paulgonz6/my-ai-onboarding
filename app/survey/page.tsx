@@ -18,6 +18,10 @@ import {
   X
 } from 'lucide-react'
 import Link from 'next/link'
+import { Button, PrimaryButton, IconButton } from '@/app/components/ui/Button'
+import { Card, GlassCard } from '@/app/components/ui/Card'
+import { fadeInUp, scaleIn, springConfig } from '@/lib/animations'
+import { gradients } from '@/lib/styles'
 
 // Survey questions data structure
 const surveyQuestions = {
@@ -358,7 +362,7 @@ export default function SurveyPage() {
         {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && (
           <div className="absolute top-0 left-0 right-0 h-1 bg-gray-800">
             <motion.div
-              className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
+              className={`h-full bg-gradient-to-r ${gradients.primary}`}
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
               transition={{ duration: 0.5, ease: 'easeOut' }}
@@ -369,14 +373,15 @@ export default function SurveyPage() {
         <div className="flex items-center justify-between px-8 py-6">
           {/* Back button */}
           {currentQuestion.type !== 'intro' && currentQuestion.type !== 'complete' && answeredQuestions > 0 ? (
-            <button
+            <IconButton
+              icon={ArrowLeft}
               onClick={handleBack}
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
+              aria-label="Go back"
+              variant="ghost"
+              size="sm"
+            />
           ) : (
-            <div className="w-9 h-9" /> // Spacer
+            <div className="w-8 h-8" /> // Spacer
           )}
           
           {/* Center: Logo or breadcrumb */}
@@ -391,12 +396,13 @@ export default function SurveyPage() {
                 {answeredQuestions + 1} of {totalQuestions}
               </div>
             )}
-            <Link
-              href="/"
-              className="p-2 rounded-full hover:bg-white/10 transition-colors"
-              title="Exit survey"
-            >
-              <X className="w-5 h-5" />
+            <Link href="/">
+              <IconButton
+                icon={X}
+                aria-label="Exit survey"
+                variant="ghost"
+                size="sm"
+              />
             </Link>
           </div>
         </div>
@@ -405,9 +411,10 @@ export default function SurveyPage() {
       <AnimatePresence mode="wait">
         <motion.div
           key={currentQuestionId}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+          exit="exit"
           transition={{ duration: 0.3 }}
           className="min-h-screen flex items-center justify-center px-6 py-12"
         >
@@ -416,10 +423,11 @@ export default function SurveyPage() {
             {currentQuestion.type === 'intro' && (
               <div className="text-center">
                 <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: 'spring' }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 mb-8"
+                  variants={scaleIn}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: 0.2, ...springConfig }}
+                  className={`inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r ${gradients.primary} mb-8`}
                 >
                   <currentQuestion.icon className="w-10 h-10 text-white" />
                 </motion.div>
@@ -447,15 +455,14 @@ export default function SurveyPage() {
                   </div>
                 </div>
                 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <PrimaryButton
                   onClick={handleStart}
-                  className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full font-sans font-semibold text-lg inline-flex items-center"
+                  icon={ArrowRight}
+                  size="lg"
+                  className="px-8 py-4 text-lg rounded-full"
                 >
                   Start Survey
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </motion.button>
+                </PrimaryButton>
               </div>
             )}
 
@@ -501,7 +508,7 @@ export default function SurveyPage() {
                       className={`w-full p-4 rounded-xl border transition-all text-left ${
                         currentQuestion.type === 'multi-choice' && answers[currentQuestionId]?.includes(option.id)
                           ? 'border-emerald-500 bg-emerald-500/10'
-                          : 'border-white/20 hover:border-white/40 hover:bg-white/5'
+                          : 'bg-white/5 border-white/10 hover:border-white/20'
                       } ${option.recommended ? 'ring-2 ring-emerald-500/50' : ''}`}
                     >
                       <div className="flex items-center justify-between">
@@ -540,16 +547,14 @@ export default function SurveyPage() {
                 </div>
 
                 {currentQuestion.type === 'multi-choice' && (
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <PrimaryButton
                     onClick={() => handleAnswer(answers[currentQuestionId] || [])}
                     disabled={!answers[currentQuestionId]?.length}
-                    className="mt-8 px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full font-sans font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                    icon={ArrowRight}
+                    className="mt-8 px-8 py-3 rounded-full"
                   >
                     Continue
-                    <ArrowRight className="inline ml-2 w-4 h-4" />
-                  </motion.button>
+                  </PrimaryButton>
                 )}
               </div>
             )}
@@ -558,10 +563,11 @@ export default function SurveyPage() {
             {currentQuestion.type === 'complete' && (
               <div className="text-center">
                 <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: 'spring' }}
-                  className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 mb-8"
+                  variants={scaleIn}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: 0.2, ...springConfig }}
+                  className={`inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-r ${gradients.primary} mb-8`}
                 >
                   <currentQuestion.icon className="w-10 h-10 text-white" />
                 </motion.div>
@@ -574,7 +580,7 @@ export default function SurveyPage() {
                   {currentQuestion.description}
                 </p>
                 
-                <div className="bg-white/5 rounded-2xl p-8 mb-8">
+                <GlassCard className="mb-8">
                   <h3 className="text-2xl font-display font-bold mb-6">
                     Your AI Onboarding Profile
                   </h3>
@@ -596,17 +602,16 @@ export default function SurveyPage() {
                       <span className="font-sans font-medium capitalize">{answers['success-metric']?.replace('-', ' ')}</span>
                     </div>
                   </div>
-                </div>
+                </GlassCard>
                 
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <PrimaryButton
                   onClick={handleComplete}
-                  className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full font-sans font-semibold text-lg inline-flex items-center"
+                  icon={ArrowRight}
+                  size="lg"
+                  className="px-8 py-4 text-lg rounded-full"
                 >
                   View My 90-Day Plan
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </motion.button>
+                </PrimaryButton>
               </div>
             )}
           </div>
