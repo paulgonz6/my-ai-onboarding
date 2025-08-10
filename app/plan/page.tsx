@@ -89,6 +89,7 @@ export default function PlanPage() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [surveyData, setSurveyData] = useState<any>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [showAccountabilityModal, setShowAccountabilityModal] = useState(false)
   const [hasSubscription, setHasSubscription] = useState(false)
 
@@ -665,12 +666,14 @@ export default function PlanPage() {
       </AnimatePresence>
       
       {/* Authentication Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
-        surveyData={surveyData}
-      />
+      {surveyData && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+          surveyData={surveyData}
+        />
+      )}
       
       {/* Accountability Modal */}
       <AccountabilityModal

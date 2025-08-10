@@ -11,7 +11,9 @@
     "test:ci": "jest --ci --coverage",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",
-    "test:all": "npm run lint && npm run test:ci"
+    "test:all": "npm run lint && npm run test:ci",
+    "clean": "rm -rf .next node_modules/.cache",
+    "clean:full": "rm -rf .next node_modules package-lock.json && npm install"
   },
   "keywords": [],
   "author": "",
