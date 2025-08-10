@@ -21,6 +21,7 @@ export interface Profile {
   work_type?: string
   engagement_frequency?: string
   survey_answers?: any
+  persona_revealed_at?: string
   created_at: string
   updated_at: string
 }

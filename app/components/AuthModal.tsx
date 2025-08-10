@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { saveSurveyWithRetry, verifySurveyAnswers } from '@/lib/profile-helpers'
 import { 
@@ -124,7 +125,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
             
             // Still call success but inform user about email confirmation
             setTimeout(() => {
-              onSuccess(authData.user.id);
+              if (authData.user) {
+                onSuccess(authData.user.id);
+              }
             }, 2000);
             
             return; // Exit early - user needs to confirm email
@@ -181,7 +184,9 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
       console.log('=== SIGNUP COMPLETE ===');
       setSuccess(true);
       setTimeout(() => {
-        onSuccess(authData.user.id);
+        if (authData.user) {
+          onSuccess(authData.user.id);
+        }
       }, 1500);
       
     } catch (error: any) {
@@ -448,6 +453,17 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
                   >
                     {mode === 'signup' ? 'Sign In' : 'Create Account'}
                   </button>
+                  
+                  {mode === 'signup' && (
+                    <div className="mt-4">
+                      <Link 
+                        href="/signin"
+                        className="text-sm text-gray-400 hover:text-white transition"
+                      >
+                        Or go to sign in page →
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
               </form>

@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/app/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import ProtectedRoute from '@/app/components/ProtectedRoute'
+import AppLayout from '@/app/components/AppLayout'
 import { 
   User, 
   Mail, 
@@ -74,11 +75,12 @@ export default function ProfilePage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-black text-white">
-        {/* Background gradient */}
-        <div className="fixed inset-0 bg-gradient-to-br from-emerald-900/10 via-black to-teal-900/10" />
-        
-        <div className="relative z-10 max-w-7xl mx-auto px-6 py-24">
+      <AppLayout>
+        <div className="min-h-screen bg-black text-white">
+          {/* Background gradient */}
+          <div className="fixed inset-0 bg-gradient-to-br from-emerald-900/10 via-black to-teal-900/10" />
+          
+          <div className="relative z-10 max-w-7xl mx-auto px-6 pt-16 pb-24">
           {/* Profile Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -214,8 +216,9 @@ export default function ProfilePage() {
               {activeTab === 'security' && <SecurityTab />}
             </motion.div>
           </AnimatePresence>
+          </div>
         </div>
-      </div>
+      </AppLayout>
     </ProtectedRoute>
   )
 }

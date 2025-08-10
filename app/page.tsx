@@ -122,6 +122,7 @@ export default function LandingPage() {
             <a href="#how-it-works" className="font-sans text-gray-300 hover:text-white transition">How it Works</a>
             <a href="#pricing" className="font-sans text-gray-300 hover:text-white transition">Pricing</a>
             <a href="#testimonials" className="font-sans text-gray-300 hover:text-white transition">Testimonials</a>
+            <a href="/signin" className="font-sans text-gray-300 hover:text-white transition">Sign In</a>
             <motion.a
               href="/survey"
               whileHover={{ scale: 1.05 }}

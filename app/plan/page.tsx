@@ -100,7 +100,57 @@ export default function PlanPage() {
   const checkAuth = async () => {
     console.log('=== PLAN PAGE AUTH CHECK DEBUG ===');
     
-    // Get survey data from localStorage first
+    // FIRST: Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      console.log('User is authenticated, loading profile data...');
+      setIsAuthenticated(true)
+      
+      // Load user's profile data from database
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile && profile.survey_answers && profile.persona) {
+        console.log('Found profile with survey data:', profile)
+        
+        // Use profile data instead of localStorage
+        const surveyAnswers = profile.survey_answers
+        const userPersona = profile.persona
+        
+        // Set survey data for modal (in case needed)
+        const dataForModal = { answers: surveyAnswers, persona: userPersona }
+        setSurveyData(dataForModal)
+        
+        // Check if this is the first time seeing the persona reveal
+        const shouldShowPersonaReveal = !profile.persona_revealed_at
+        
+        // Generate plan with profile data
+        // Skip loading animation for returning users, but show persona reveal for first-timers
+        generateLocalPlan(surveyAnswers, userPersona, true, shouldShowPersonaReveal)
+        
+        // Mark persona as revealed if this is the first time
+        if (shouldShowPersonaReveal) {
+          await supabase
+            .from('profiles')
+            .update({ persona_revealed_at: new Date().toISOString() })
+            .eq('id', user.id)
+        }
+        
+        // Clear localStorage since we have profile data
+        localStorage.removeItem('surveyAnswers')
+        localStorage.removeItem('userPersona')
+        return
+      } else {
+        console.log('Profile exists but missing survey data, checking localStorage...')
+      }
+    }
+    
+    // NOT AUTHENTICATED or NO PROFILE DATA: Check localStorage
+    console.log('Checking localStorage for survey data...')
     const rawSurveyAnswers = localStorage.getItem('surveyAnswers')
     const rawPersona = localStorage.getItem('userPersona')
     
@@ -116,7 +166,6 @@ export default function PlanPage() {
     // Check if we have survey data
     if (Object.keys(surveyAnswers).length === 0) {
       console.log('No survey data found, redirecting to survey')
-      // No survey data, redirect to survey
       router.push('/survey')
       return
     }
@@ -126,18 +175,11 @@ export default function PlanPage() {
     console.log('Setting surveyData state for AuthModal:', dataForModal)
     setSurveyData(dataForModal)
     
-    // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (user) {
-      setIsAuthenticated(true)
-      // User is logged in, generate plan with their data
-      generateLocalPlan(surveyAnswers, userPersona)
-    } else {
-      // Not authenticated, generate plan and show auth modal
+    // Generate plan and show auth modal if not authenticated
+    if (!user) {
       console.log('User not authenticated, will show auth modal after plan generation')
-      generateLocalPlan(surveyAnswers, userPersona)
     }
+    generateLocalPlan(surveyAnswers, userPersona)
   }
 
   const loadUserPlan = async () => {
@@ -147,9 +189,28 @@ export default function PlanPage() {
     generateLocalPlan(surveyAnswers, userPersona)
   }
 
-  const generateLocalPlan = (surveyAnswers: any, userPersona: string) => {
+  const generateLocalPlan = (surveyAnswers: any, userPersona: string, skipAnimation: boolean = false, showPersonaReveal: boolean = true) => {
     
-    // Simulate plan generation with progressive messages
+    if (skipAnimation) {
+      // For authenticated users with profile data, skip the loading animation
+      setPersona(userPersona)
+      
+      // Generate personalized plan
+      const generatedPlan = generate90DayPlan(
+        userPersona,
+        surveyAnswers['work-type'] || 'operations',
+        surveyAnswers['engagement-frequency'] || '3-times',
+        surveyAnswers['time-wasters'] || [],
+        surveyAnswers['success-metric'] || 'save-time'
+      )
+      
+      setPlan(generatedPlan)
+      // Go directly to plan view if user has already seen persona reveal
+      setStage(showPersonaReveal ? 'persona' : 'plan')
+      return
+    }
+    
+    // Simulate plan generation with progressive messages for new users
     const messages = [
       'Analyzing your responses...',
       'Understanding your work style...',
@@ -418,8 +479,8 @@ export default function PlanPage() {
             exit={{ opacity: 0 }}
             className="min-h-screen"
           >
-            {/* Header */}
-            <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
+            {/* Header - adjusted for fixed AppNav */}
+            <div className="sticky top-16 z-30 bg-black/80 backdrop-blur-xl border-b border-white/10">
               <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
