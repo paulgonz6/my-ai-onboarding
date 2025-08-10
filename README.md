@@ -1,5 +1,9 @@
 # AI Onboarding Platform
 
+[![Built with Next.js](https://img.shields.io/badge/Built%20with-Next.js-black)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue)](https://www.typescriptlang.org/)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-Styled-38B2AC)](https://tailwindcss.com)
+
 A sophisticated AI onboarding platform that creates personalized 90-day journeys to help professionals integrate AI into their workflows.
 
 ## 🚀 Features
