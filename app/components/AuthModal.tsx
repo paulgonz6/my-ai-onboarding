@@ -91,27 +91,56 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
       
       console.log('User created successfully:', authData.user.id);
 
-      // Step 2: Sign in immediately to establish session
-      // This ensures auth.uid() will work in RLS policies
-      console.log('Step 2: Signing in to establish session...');
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
+      // Step 2: Check if we already have a session from signup
+      // Some Supabase configs auto-sign-in on signup, others require email confirmation
+      let session = authData.session;
+      
+      if (!session) {
+        console.log('No session from signup, attempting sign-in...');
+        
+        // Try to sign in - this might fail if email confirmation is required
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
 
-      if (signInError) {
-        console.error('Sign-in after signup failed:', signInError);
-        // Continue anyway - user is created
-      } else {
-        console.log('Sign-in successful, session established');
+        if (signInError) {
+          console.warn('Sign-in after signup failed:', signInError);
+          
+          // If email confirmation is required, we need to save data differently
+          if (signInError.message?.includes('Email not confirmed')) {
+            console.log('Email confirmation required - saving survey data for later...');
+            
+            // Save survey data to localStorage for when user confirms email
+            localStorage.setItem('pendingSurveyData', JSON.stringify({
+              userId: authData.user.id,
+              answers: effectiveSurveyData.answers,
+              persona: effectiveSurveyData.persona,
+              fullName: fullName
+            }));
+            
+            setSuccess(true);
+            setError('Please check your email to confirm your account. Your survey data has been saved.');
+            
+            // Still call success but inform user about email confirmation
+            setTimeout(() => {
+              onSuccess(authData.user.id);
+            }, 2000);
+            
+            return; // Exit early - user needs to confirm email
+          }
+        } else if (signInData?.session) {
+          session = signInData.session;
+          console.log('Sign-in successful, session established');
+        }
       }
       
       // Step 2.5: Wait a moment for the session to fully establish
       // This helps ensure RLS policies work correctly
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (session) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
       
-      // Verify session is active
-      const { data: { session } } = await supabase.auth.getSession();
       console.log('Current session:', session ? 'Active' : 'Not active');
 
       // Step 3: Update the profile with survey data using our helper function

@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { User, Session } from '@supabase/supabase-js'
 import { supabase, Profile } from '@/lib/supabase'
 import { useRouter, usePathname } from 'next/navigation'
+import { handlePendingSurveyData } from '@/lib/handle-pending-survey'
 
 interface AuthContextType {
   user: User | null
@@ -50,11 +51,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth()
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session)
       setUser(session?.user ?? null)
       
       if (session?.user) {
+        // Check for pending survey data on sign in (especially after email confirmation)
+        if (event === 'SIGNED_IN') {
+          console.log('User signed in, checking for pending survey data...');
+          await handlePendingSurveyData(session.user.id);
+        }
+        
         await loadProfile(session.user.id)
         await calculateProgress(session.user.id)
       } else {
