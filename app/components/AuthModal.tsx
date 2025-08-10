@@ -103,25 +103,12 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
         
         // Wait a moment for the trigger to create the profile
         console.log('Waiting for trigger to create initial profile...');
-        await new Promise(resolve => setTimeout(resolve, 2000))
+        await new Promise(resolve => setTimeout(resolve, 1000))
         
-        // Check if profile exists first
-        console.log('Checking if profile exists...');
-        const { data: existingProfile, error: checkError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-        
-        console.log('Existing profile check result:', existingProfile);
-        console.log('Existing profile check error:', checkError);
-        
-        // Upsert profile with survey data to ensure it's saved
-        // Note: Don't include timestamps as they're handled by the database
-        // CRITICAL: Use effectiveSurveyData, not surveyData!
+        // Update profile with survey data
+        // Note: We use update instead of upsert to avoid RLS issues
+        // The trigger should have already created the profile
         const profileData = {
-          id: authData.user.id,
-          email: email,
           full_name: fullName,
           persona: effectiveSurveyData?.persona || null,
           work_type: effectiveSurveyData?.answers?.['work-type'] || null,
@@ -130,28 +117,23 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
           onboarding_completed: true
         }
         
-        console.log('=== ATTEMPTING PROFILE UPSERT ===');
+        console.log('=== ATTEMPTING PROFILE UPDATE ===');
         console.log('Profile data to save:', JSON.stringify(profileData, null, 2));
-        
-        // Log the actual SQL operation being attempted
-        console.log('Attempting upsert to profiles table with ID:', profileData.id);
-        console.log('Survey answers being saved:', JSON.stringify(profileData.survey_answers, null, 2));
-        console.log('Persona being saved:', profileData.persona);
+        console.log('User ID:', authData.user.id);
         
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
-          .upsert(profileData, {
-            onConflict: 'id'  // Explicitly specify conflict resolution
-          })
+          .update(profileData)
+          .eq('id', authData.user.id)
           .select()
           .single()
 
         if (profileError) {
-          console.warn('Initial profile upsert failed, attempting retry...');
+          console.warn('Profile update failed, attempting insert...');
           console.warn('Error details:', profileError);
           
-          // Try without timestamps
-          const retryData = {
+          // If update failed, try inserting (in case trigger didn't fire)
+          const insertData = {
             id: authData.user.id,
             email: email,
             full_name: fullName,
@@ -164,21 +146,22 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
           
           const { data: retryProfile, error: retryError } = await supabase
             .from('profiles')
-            .upsert(retryData)
+            .insert(insertData)
             .select()
             .single()
           
           if (retryError) {
-            console.error('=== PROFILE UPSERT FAILED ===');
-            console.error('Both attempts failed. Error:', retryError);
-            throw new Error(`Failed to create profile: ${retryError.message}`);
+            console.error('=== PROFILE CREATION FAILED ===');
+            console.error('Both update and insert failed. Error:', retryError);
+            // Don't throw error, continue with signup success
+            console.warn('Continuing despite profile error - user can update profile later');
           } else {
-            console.log('=== PROFILE SAVED ON RETRY ===');
-            console.log('Profile saved:', retryProfile);
+            console.log('=== PROFILE CREATED ON RETRY ===');
+            console.log('Profile created:', retryProfile);
           }
         } else {
-          console.log('=== PROFILE SAVED SUCCESSFULLY ===');
-          console.log('Saved profile data:', profile);
+          console.log('=== PROFILE UPDATED SUCCESSFULLY ===');
+          console.log('Updated profile data:', profile);
         }
         
         // Verify the save by fetching the profile again
