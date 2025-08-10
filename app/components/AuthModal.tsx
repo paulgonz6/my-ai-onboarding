@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { saveSurveyWithRetry, verifySurveyAnswers } from '@/lib/profile-helpers'
 import { 
   X, 
   Mail, 
@@ -46,39 +48,27 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
     setLoading(true)
     setError('')
     
-    console.log('=== SIGNUP PROCESS STARTING ===');
-    console.log('Email:', email);
-    console.log('Full Name:', fullName);
-    console.log('Survey Data from props:', surveyData);
-    
-    // Always check localStorage as primary source since that's where survey saves it
+    // Get survey data from localStorage (most reliable source)
     const localAnswers = localStorage.getItem('surveyAnswers');
     const localPersona = localStorage.getItem('userPersona');
     
-    let effectiveSurveyData = surveyData;
+    console.log('=== SIGNUP PROCESS STARTING ===');
+    console.log('Raw localStorage data:');
+    console.log('- surveyAnswers:', localAnswers);
+    console.log('- userPersona:', localPersona);
     
-    // Use localStorage data if available (most reliable source)
-    if (localAnswers && localPersona) {
-      effectiveSurveyData = {
-        answers: JSON.parse(localAnswers),
-        persona: localPersona
-      };
-      console.log('Using survey data from localStorage:', effectiveSurveyData);
-    } else if (surveyData && surveyData.answers && surveyData.persona) {
-      // Use props data if localStorage is empty
-      effectiveSurveyData = surveyData;
-      console.log('Using survey data from props:', effectiveSurveyData);
-    } else {
-      console.error('ERROR: No survey data available from localStorage or props!');
-      effectiveSurveyData = { answers: {}, persona: null };
-    }
+    const effectiveSurveyData = {
+      answers: localAnswers ? JSON.parse(localAnswers) : {},
+      persona: localPersona || 'practical-adopter'
+    };
     
-    console.log('Final Survey Data to use:', effectiveSurveyData);
-    console.log('Survey Answers:', effectiveSurveyData?.answers);
-    console.log('Persona:', effectiveSurveyData?.persona);
+    console.log('Parsed survey data:');
+    console.log('- answers:', effectiveSurveyData.answers);
+    console.log('- persona:', effectiveSurveyData.persona);
 
     try {
-      // Create user account (no email confirmation required)
+      // Step 1: Create the user account
+      console.log('Step 1: Creating user account...');
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -91,122 +81,120 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
         }
       })
 
-      if (authError) throw authError
-
-      if (authData.user) {
-        console.log('=== USER CREATED SUCCESSFULLY ===');
-        console.log('User ID:', authData.user.id);
-        console.log('User Email:', authData.user.email);
-        console.log('Survey data to save:', surveyData);
-        console.log('surveyData.answers detail:', JSON.stringify(surveyData?.answers, null, 2));
-        console.log('surveyData.persona:', surveyData?.persona);
-        
-        // Wait a moment for the trigger to create the profile
-        console.log('Waiting for trigger to create initial profile...');
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        
-        // Check if profile exists first
-        console.log('Checking if profile exists...');
-        const { data: existingProfile, error: checkError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-        
-        console.log('Existing profile check result:', existingProfile);
-        console.log('Existing profile check error:', checkError);
-        
-        // Upsert profile with survey data to ensure it's saved
-        // Note: Don't include timestamps as they're handled by the database
-        // CRITICAL: Use effectiveSurveyData, not surveyData!
-        const profileData = {
-          id: authData.user.id,
-          email: email,
-          full_name: fullName,
-          persona: effectiveSurveyData?.persona || null,
-          work_type: effectiveSurveyData?.answers?.['work-type'] || null,
-          engagement_frequency: effectiveSurveyData?.answers?.['engagement-frequency'] || null,
-          survey_answers: effectiveSurveyData?.answers || {},
-          onboarding_completed: true
-        }
-        
-        console.log('=== ATTEMPTING PROFILE UPSERT ===');
-        console.log('Profile data to save:', JSON.stringify(profileData, null, 2));
-        
-        // Log the actual SQL operation being attempted
-        console.log('Attempting upsert to profiles table with ID:', profileData.id);
-        console.log('Survey answers being saved:', JSON.stringify(profileData.survey_answers, null, 2));
-        console.log('Persona being saved:', profileData.persona);
-        
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .upsert(profileData, {
-            onConflict: 'id'  // Explicitly specify conflict resolution
-          })
-          .select()
-          .single()
-
-        if (profileError) {
-          console.warn('Initial profile upsert failed, attempting retry...');
-          console.warn('Error details:', profileError);
-          
-          // Try without timestamps
-          const retryData = {
-            id: authData.user.id,
-            email: email,
-            full_name: fullName,
-            persona: effectiveSurveyData?.persona || null,
-            work_type: effectiveSurveyData?.answers?.['work-type'] || null,
-            engagement_frequency: effectiveSurveyData?.answers?.['engagement-frequency'] || null,
-            survey_answers: effectiveSurveyData?.answers || {},
-            onboarding_completed: true
-          }
-          
-          const { data: retryProfile, error: retryError } = await supabase
-            .from('profiles')
-            .upsert(retryData)
-            .select()
-            .single()
-          
-          if (retryError) {
-            console.error('=== PROFILE UPSERT FAILED ===');
-            console.error('Both attempts failed. Error:', retryError);
-            throw new Error(`Failed to create profile: ${retryError.message}`);
-          } else {
-            console.log('=== PROFILE SAVED ON RETRY ===');
-            console.log('Profile saved:', retryProfile);
-          }
-        } else {
-          console.log('=== PROFILE SAVED SUCCESSFULLY ===');
-          console.log('Saved profile data:', profile);
-        }
-        
-        // Verify the save by fetching the profile again
-        console.log('Verifying profile save...');
-        const { data: verifyProfile, error: verifyError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single()
-        
-        console.log('=== PROFILE VERIFICATION ===');
-        console.log('Verified profile:', verifyProfile);
-        console.log('Verification error:', verifyError);
-        console.log('Survey answers in DB:', verifyProfile?.survey_answers);
-        console.log('Persona in DB:', verifyProfile?.persona);
-
-        // Generate and save user plan
-        await generateUserPlan(authData.user.id, effectiveSurveyData)
-
-        setSuccess(true)
-        setTimeout(() => {
-          onSuccess(authData.user.id)
-        }, 1500)
+      if (authError) {
+        console.error('Auth signup error:', authError);
+        throw authError;
       }
+
+      if (!authData.user) {
+        throw new Error('User creation failed - no user returned');
+      }
+      
+      console.log('User created successfully:', authData.user.id);
+
+      // Step 2: Check if we already have a session from signup
+      // Some Supabase configs auto-sign-in on signup, others require email confirmation
+      let session = authData.session;
+      
+      if (!session) {
+        console.log('No session from signup, attempting sign-in...');
+        
+        // Try to sign in - this might fail if email confirmation is required
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+
+        if (signInError) {
+          console.warn('Sign-in after signup failed:', signInError);
+          
+          // If email confirmation is required, we need to save data differently
+          if (signInError.message?.includes('Email not confirmed')) {
+            console.log('Email confirmation required - saving survey data for later...');
+            
+            // Save survey data to localStorage for when user confirms email
+            localStorage.setItem('pendingSurveyData', JSON.stringify({
+              userId: authData.user.id,
+              answers: effectiveSurveyData.answers,
+              persona: effectiveSurveyData.persona,
+              fullName: fullName
+            }));
+            
+            setSuccess(true);
+            setError('Please check your email to confirm your account. Your survey data has been saved.');
+            
+            // Still call success but inform user about email confirmation
+            setTimeout(() => {
+              if (authData.user) {
+                onSuccess(authData.user.id);
+              }
+            }, 2000);
+            
+            return; // Exit early - user needs to confirm email
+          }
+        } else if (signInData?.session) {
+          session = signInData.session;
+          console.log('Sign-in successful, session established');
+        }
+      }
+      
+      // Step 2.5: Wait a moment for the session to fully establish
+      // This helps ensure RLS policies work correctly
+      if (session) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      console.log('Current session:', session ? 'Active' : 'Not active');
+
+      // Step 3: Update the profile with survey data using our helper function
+      console.log('Step 3: Updating profile with survey data...');
+      
+      try {
+        // Use the helper function with retry logic
+        const savedProfile = await saveSurveyWithRetry(
+          authData.user.id,
+          effectiveSurveyData.answers,
+          effectiveSurveyData.persona,
+          fullName,
+          3 // max retries
+        );
+        
+        console.log('Profile saved successfully with survey data:', savedProfile);
+        
+        // Double-check verification
+        const verified = await verifySurveyAnswers(authData.user.id);
+        if (!verified || !verified.survey_answers || Object.keys(verified.survey_answers).length === 0) {
+          console.error('⚠️ WARNING: Survey answers verification failed!');
+          console.error('This is a critical error - survey data may not have been saved');
+          // Don't throw here - user account is created, we can try to recover later
+        } else {
+          console.log('✅ Survey answers verified and saved correctly');
+        }
+      } catch (profileError) {
+        console.error('Failed to save survey data to profile:', profileError);
+        // Don't fail the entire signup - the user account exists
+        // We can attempt to save the survey data again later
+        setError('Account created but survey data may not have been saved. Please contact support if your personalized plan is missing.');
+      }
+
+      // Step 4: Generate and save user plan
+      console.log('Step 4: Generating user plan...');
+      await generateUserPlan(authData.user.id, effectiveSurveyData);
+
+      console.log('=== SIGNUP COMPLETE ===');
+      setSuccess(true);
+      setTimeout(() => {
+        if (authData.user) {
+          onSuccess(authData.user.id);
+        }
+      }, 1500);
+      
     } catch (error: any) {
-      setError(error.message || 'An error occurred during signup')
+      console.error('=== SIGNUP ERROR ===');
+      console.error('Error details:', error);
+      setError(error.message || 'An error occurred during signup');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
@@ -215,22 +203,17 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
     setLoading(true)
     setError('')
 
-    // Get survey data from localStorage (same as signup)
+    // Get survey data from localStorage
     const localAnswers = localStorage.getItem('surveyAnswers');
     const localPersona = localStorage.getItem('userPersona');
     
-    let effectiveSurveyData = surveyData;
+    console.log('=== LOGIN PROCESS STARTING ===');
+    console.log('Survey data from localStorage:', { localAnswers, localPersona });
     
-    if (localAnswers && localPersona) {
-      effectiveSurveyData = {
-        answers: JSON.parse(localAnswers),
-        persona: localPersona
-      };
-    } else if (surveyData && surveyData.answers && surveyData.persona) {
-      effectiveSurveyData = surveyData;
-    } else {
-      effectiveSurveyData = { answers: {}, persona: null };
-    }
+    const effectiveSurveyData = {
+      answers: localAnswers ? JSON.parse(localAnswers) : {},
+      persona: localPersona || 'practical-adopter'
+    };
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -241,20 +224,38 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
       if (error) throw error
 
       if (data.user) {
-        // Upsert profile with new survey data
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            email: email,
-            persona: effectiveSurveyData?.persona || null,
-            work_type: effectiveSurveyData?.answers?.['work-type'] || null,
-            engagement_frequency: effectiveSurveyData?.answers?.['engagement-frequency'] || null,
-            survey_answers: effectiveSurveyData?.answers || {}
-          })
-
-        if (profileError) {
-          console.error('Profile upsert error:', profileError)
+        console.log('Login successful for user:', data.user.id);
+        
+        // Update profile with survey data if they just completed it
+        if (Object.keys(effectiveSurveyData.answers).length > 0) {
+          console.log('Updating profile with survey data...');
+          
+          try {
+            // Use the helper function with retry logic
+            const savedProfile = await saveSurveyWithRetry(
+              data.user.id,
+              effectiveSurveyData.answers,
+              effectiveSurveyData.persona,
+              undefined, // fullName not provided on login
+              3 // max retries
+            );
+            
+            console.log('Profile updated successfully with survey data:', savedProfile);
+            
+            // Verify the save
+            const verified = await verifySurveyAnswers(data.user.id);
+            if (!verified || !verified.survey_answers || Object.keys(verified.survey_answers).length === 0) {
+              console.error('⚠️ WARNING: Survey answers verification failed after login!');
+            } else {
+              console.log('✅ Survey answers verified and saved correctly');
+            }
+            
+            // Generate plan for existing user with new survey data
+            await generateUserPlan(data.user.id, effectiveSurveyData);
+          } catch (profileError) {
+            console.error('Failed to update profile with survey data:', profileError);
+            // Don't fail the login - user can still access their account
+          }
         }
 
         setSuccess(true)
@@ -263,6 +264,7 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
         }, 1500)
       }
     } catch (error: any) {
+      console.error('Login error:', error);
       setError(error.message || 'An error occurred during login')
     } finally {
       setLoading(false)
@@ -451,6 +453,17 @@ export default function AuthModal({ isOpen, onClose, onSuccess, surveyData }: Au
                   >
                     {mode === 'signup' ? 'Sign In' : 'Create Account'}
                   </button>
+                  
+                  {mode === 'signup' && (
+                    <div className="mt-4">
+                      <Link 
+                        href="/signin"
+                        className="text-sm text-gray-400 hover:text-white transition"
+                      >
+                        Or go to sign in page →
+                      </Link>
+                    </div>
+                  )}
                 </div>
 
               </form>

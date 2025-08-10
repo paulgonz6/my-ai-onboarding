@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Playfair_Display, Inter } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/app/contexts/AuthContext'
-import Navigation from '@/app/components/Navigation'
 import DebugPanel from '@/app/components/DebugPanel'
 
 const playfair = Playfair_Display({ 
@@ -37,7 +36,6 @@ export default function RootLayout({
     <html lang="en" className={`${playfair.variable} ${inter.variable}`}>
       <body className="font-sans antialiased">
         <AuthProvider>
-          <Navigation />
           {children}
           <DebugPanel />
         </AuthProvider>

@@ -24,6 +24,8 @@ import { generate90DayPlan, Activity } from '../../lib/activities'
 import { supabase } from '@/lib/supabase'
 import AuthModal from '../components/AuthModal'
 import AccountabilityModal from '../components/AccountabilityModal'
+import AppNav from '../components/AppNav'
+import { useAuth } from '../contexts/AuthContext'
 
 // Persona definitions with icons and descriptions
 const personaDefinitions = {
@@ -75,6 +77,7 @@ type ViewMode = 'timeline' | 'calendar' | 'list'
 
 export default function PlanPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [stage, setStage] = useState<'loading' | 'persona' | 'plan'>('loading')
   const [loadingMessage, setLoadingMessage] = useState('Analyzing your responses...')
   const [persona, setPersona] = useState<string>('')
@@ -86,6 +89,7 @@ export default function PlanPage() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [surveyData, setSurveyData] = useState<any>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const [showAccountabilityModal, setShowAccountabilityModal] = useState(false)
   const [hasSubscription, setHasSubscription] = useState(false)
 
@@ -96,7 +100,57 @@ export default function PlanPage() {
   const checkAuth = async () => {
     console.log('=== PLAN PAGE AUTH CHECK DEBUG ===');
     
-    // Get survey data from localStorage first
+    // FIRST: Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      console.log('User is authenticated, loading profile data...');
+      setIsAuthenticated(true)
+      
+      // Load user's profile data from database
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+      
+      if (profile && profile.survey_answers && profile.persona) {
+        console.log('Found profile with survey data:', profile)
+        
+        // Use profile data instead of localStorage
+        const surveyAnswers = profile.survey_answers
+        const userPersona = profile.persona
+        
+        // Set survey data for modal (in case needed)
+        const dataForModal = { answers: surveyAnswers, persona: userPersona }
+        setSurveyData(dataForModal)
+        
+        // Check if this is the first time seeing the persona reveal
+        const shouldShowPersonaReveal = !profile.persona_revealed_at
+        
+        // Generate plan with profile data
+        // Skip loading animation for returning users, but show persona reveal for first-timers
+        generateLocalPlan(surveyAnswers, userPersona, true, shouldShowPersonaReveal)
+        
+        // Mark persona as revealed if this is the first time
+        if (shouldShowPersonaReveal) {
+          await supabase
+            .from('profiles')
+            .update({ persona_revealed_at: new Date().toISOString() })
+            .eq('id', user.id)
+        }
+        
+        // Clear localStorage since we have profile data
+        localStorage.removeItem('surveyAnswers')
+        localStorage.removeItem('userPersona')
+        return
+      } else {
+        console.log('Profile exists but missing survey data, checking localStorage...')
+      }
+    }
+    
+    // NOT AUTHENTICATED or NO PROFILE DATA: Check localStorage
+    console.log('Checking localStorage for survey data...')
     const rawSurveyAnswers = localStorage.getItem('surveyAnswers')
     const rawPersona = localStorage.getItem('userPersona')
     
@@ -112,7 +166,6 @@ export default function PlanPage() {
     // Check if we have survey data
     if (Object.keys(surveyAnswers).length === 0) {
       console.log('No survey data found, redirecting to survey')
-      // No survey data, redirect to survey
       router.push('/survey')
       return
     }
@@ -122,18 +175,11 @@ export default function PlanPage() {
     console.log('Setting surveyData state for AuthModal:', dataForModal)
     setSurveyData(dataForModal)
     
-    // Check if user is authenticated
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (user) {
-      setIsAuthenticated(true)
-      // User is logged in, generate plan with their data
-      generateLocalPlan(surveyAnswers, userPersona)
-    } else {
-      // Not authenticated, generate plan and show auth modal
+    // Generate plan and show auth modal if not authenticated
+    if (!user) {
       console.log('User not authenticated, will show auth modal after plan generation')
-      generateLocalPlan(surveyAnswers, userPersona)
     }
+    generateLocalPlan(surveyAnswers, userPersona)
   }
 
   const loadUserPlan = async () => {
@@ -143,9 +189,28 @@ export default function PlanPage() {
     generateLocalPlan(surveyAnswers, userPersona)
   }
 
-  const generateLocalPlan = (surveyAnswers: any, userPersona: string) => {
+  const generateLocalPlan = (surveyAnswers: any, userPersona: string, skipAnimation: boolean = false, showPersonaReveal: boolean = true) => {
     
-    // Simulate plan generation with progressive messages
+    if (skipAnimation) {
+      // For authenticated users with profile data, skip the loading animation
+      setPersona(userPersona)
+      
+      // Generate personalized plan
+      const generatedPlan = generate90DayPlan(
+        userPersona,
+        surveyAnswers['work-type'] || 'operations',
+        surveyAnswers['engagement-frequency'] || '3-times',
+        surveyAnswers['time-wasters'] || [],
+        surveyAnswers['success-metric'] || 'save-time'
+      )
+      
+      setPlan(generatedPlan)
+      // Go directly to plan view if user has already seen persona reveal
+      setStage(showPersonaReveal ? 'persona' : 'plan')
+      return
+    }
+    
+    // Simulate plan generation with progressive messages for new users
     const messages = [
       'Analyzing your responses...',
       'Understanding your work style...',
@@ -264,6 +329,15 @@ export default function PlanPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Show AppNav only for authenticated users */}
+      {user && (
+        <AppNav 
+          showAccountability={true}
+          onAccountabilityClick={() => setShowAccountabilityModal(true)}
+          hasSubscription={hasSubscription}
+        />
+      )}
+      
       <AnimatePresence mode="wait">
         {/* Loading Stage */}
         {stage === 'loading' && (
@@ -409,67 +483,38 @@ export default function PlanPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="min-h-screen"
+            className="min-h-screen pt-16"
           >
-            {/* Header */}
-            <div className="sticky top-0 z-40 bg-black/80 backdrop-blur-xl border-b border-white/10">
+            {/* Simple header with view mode tabs only */}
+            <div className="sticky top-16 z-30 bg-black/80 backdrop-blur-xl border-b border-white/10">
               <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r ${personaDefinitions[persona as keyof typeof personaDefinitions].color}`}>
-                      {(() => {
-                        const Icon = personaDefinitions[persona as keyof typeof personaDefinitions].icon
-                        return <Icon className="w-5 h-5 text-white" />
-                      })()}
-                    </div>
-                    <div>
-                      <h1 className="text-xl font-display font-bold">Your 90-Day AI Journey</h1>
-                      <p className="text-sm font-sans text-gray-400">
-                        {personaDefinitions[persona as keyof typeof personaDefinitions].title}
-                      </p>
-                    </div>
-                  </div>
+                  <h1 className="text-2xl font-display font-bold">Your 90-Day Journey</h1>
                   
-                  <div className="flex items-center space-x-4">
-                    {/* Prominent Accountability Button */}
-                    {!hasSubscription && (
-                      <button
-                        onClick={() => setShowAccountabilityModal(true)}
-                        className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-full font-sans font-semibold text-white hover:shadow-lg hover:shadow-yellow-500/25 transition flex items-center animate-pulse"
-                      >
-                        <Download className="w-5 h-5 mr-2" />
-                        Get Accountability
-                      </button>
-                    )}
-                    
+                  {/* Action buttons */}
+                  <div className="flex items-center space-x-2">
                     {hasSubscription && (
                       <button
                         onClick={handleExportCalendar}
-                        className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full font-sans font-semibold text-white hover:shadow-lg hover:shadow-emerald-500/25 transition flex items-center"
+                        className="px-4 py-2 bg-emerald-500/10 text-emerald-400 rounded-lg font-sans font-medium hover:bg-emerald-500/20 transition flex items-center"
                       >
-                        <Download className="w-5 h-5 mr-2" />
-                        Export Calendar
-                      </button>
-                    )}
-                    
-                    {isAuthenticated && (
-                      <button
-                        onClick={() => router.push('/timeline')}
-                        className="px-4 py-2 bg-white/10 rounded-lg font-sans font-semibold hover:bg-white/20 transition flex items-center"
-                      >
-                        View Timeline
-                        <ArrowRight className="ml-2 w-4 h-4" />
+                        <Download className="w-4 h-4 mr-2" />
+                        Export
                       </button>
                     )}
                     
                     <button
                       onClick={() => setIsEditing(!isEditing)}
                       className="p-2 rounded-lg hover:bg-white/10 transition"
+                      aria-label="Edit plan"
                     >
                       <Edit2 className="w-5 h-5" />
                     </button>
                     
-                    <button className="p-2 rounded-lg hover:bg-white/10 transition">
+                    <button 
+                      className="p-2 rounded-lg hover:bg-white/10 transition"
+                      aria-label="Share plan"
+                    >
                       <Share2 className="w-5 h-5" />
                     </button>
                   </div>
@@ -659,12 +704,14 @@ export default function PlanPage() {
       </AnimatePresence>
       
       {/* Authentication Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-        onSuccess={handleAuthSuccess}
-        surveyData={surveyData}
-      />
+      {surveyData && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={handleAuthSuccess}
+          surveyData={surveyData}
+        />
+      )}
       
       {/* Accountability Modal */}
       <AccountabilityModal
