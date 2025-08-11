@@ -46,14 +46,9 @@ export default function SignInPage() {
           .single()
 
         if (profile?.survey_answers && profile?.persona) {
-          // User has completed onboarding
-          // If they've already seen the persona reveal, go to timeline
-          // Otherwise, go to plan to see the persona reveal once
-          if (profile.persona_revealed_at) {
-            router.push('/timeline')
-          } else {
-            router.push('/plan')
-          }
+          // User has completed onboarding - always go to timeline
+          // Skip persona reveal for returning users
+          router.push('/timeline')
         } else {
           // User needs to complete survey
           router.push('/survey')

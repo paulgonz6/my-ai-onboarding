@@ -43,15 +43,16 @@ describe('SignIn Page - Routing Logic', () => {
     })
   })
 
-  describe('First-time user (no persona_revealed_at)', () => {
-    it('should redirect to /plan page to show persona reveal', async () => {
+
+  describe('Returning user (has completed survey)', () => {
+    it('should always redirect to /timeline page for users with completed surveys', async () => {
       const mockUser = { id: 'test-user-123', email: 'test@example.com' }
       const mockProfile = {
         id: 'test-user-123',
         email: 'test@example.com',
         survey_answers: { 'work-type': 'creative' },
         persona: 'eager-beginner',
-        persona_revealed_at: null, // First time user
+        persona_revealed_at: '2024-01-01T00:00:00Z', // Has seen persona
       }
 
       // Mock successful sign in
@@ -84,22 +85,20 @@ describe('SignIn Page - Routing Logic', () => {
       fireEvent.click(submitButton)
 
       await waitFor(() => {
-        expect(mockPush).toHaveBeenCalledWith('/plan')
+        expect(mockPush).toHaveBeenCalledWith('/timeline')
       })
 
-      expect(mockPush).not.toHaveBeenCalledWith('/timeline')
+      expect(mockPush).not.toHaveBeenCalledWith('/plan')
     })
-  })
 
-  describe('Returning user (persona already revealed)', () => {
-    it('should redirect to /timeline page, skipping persona reveal', async () => {
+    it('should redirect to /timeline even if persona_revealed_at is null', async () => {
       const mockUser = { id: 'test-user-123', email: 'test@example.com' }
       const mockProfile = {
         id: 'test-user-123',
         email: 'test@example.com',
         survey_answers: { 'work-type': 'creative' },
         persona: 'eager-beginner',
-        persona_revealed_at: '2024-01-01T00:00:00Z', // Returning user
+        persona_revealed_at: null, // Never seen persona, but still go to timeline
       }
 
       // Mock successful sign in
